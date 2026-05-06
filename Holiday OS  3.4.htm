@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Holiday OS 3.4</title>
+    <style>
+        :root {
+            --bg: #1a3a5c;
+            --desktop-bg-image: none;
+            --taskbar-bg: #0d1117;
+            --window-bg: #f0f0f0;
+            --window-title-bg: #1e3a5f;
+            --text-color: #333;
+            --icon-text-color: white;
+            --context-bg: white;
+            --button-bg: #e0e0e0;
+            --hover-bg: rgba(255,255,255,0.1);
+        }
+        .dark-theme {
+            --bg: #121212;
+            --taskbar-bg: #000;
+            --window-bg: #2c2c2c;
+            --window-title-bg: #1a1a2e;
+            --text-color: #ddd;
+            --context-bg: #444;
+            --button-bg: #555;
+            --hover-bg: rgba(255,255,255,0.15);
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            width:100vw; height:100vh; overflow:hidden;
+            font-family:'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;
+            background:#000; user-select:none;
+        }
+
+        /* ========== 桌面 ========== */
+        #desktop {
+            position:absolute; top:0; left:0; right:0; bottom:48px;
+            background-color: var(--bg);
+            background-image: var(--desktop-bg-image);
+            background-size:cover; background-position:center;
+            z-index:0; display:flex; flex-wrap:wrap; align-content:flex-start;
+            padding:20px; gap:12px; overflow-y:auto;
+        }
+        .desktop-icon {
+            display:flex; flex-direction:column; align-items:center;
+            width:80px; padding:8px 4px; border-radius:12px; cursor:pointer;
+            transition:background 0.15s; color:var(--icon-text-color); font-size:12px;
+            text-align:center; text-shadow:0 1px 4px rgba(0,0,0,0.6);
+        }
+        .desktop-icon:hover { background: var(--hover-bg); backdrop-filter:blur(5px); }
+        .desktop-icon .icon-img { font-size:40px; margin-bottom:4px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); }
+        .desktop-icon.dragging { opacity:0.6; background:rgba(255,255,255,0.3); }
+
+        /* ========== 任务栏 ========== */
+        #taskbar {
+            position:absolute; bottom:0; left:0; right:0; height:48px;
+            background:var(--taskbar-bg); display:flex; align-items:center;
+            padding:0 8px; gap:6px; z-index:9999; box-shadow:0 -2px 10px rgba(0,0,0,0.7);
+        }
+        #start-btn {
+            background:transparent; border:none; color:white; font-size:22px;
+            cursor:pointer; width:40px; height:36px; border-radius:8px;
+            display:flex; align-items:center; justify-content:center;
+        }
+        #start-btn:hover, #start-btn.active { background:rgba(255,255,255,0.2); }
+        #taskbar-windows {
+            display:flex; flex:1; height:100%; gap:4px; overflow-x:auto;
+            align-items:center; padding:4px 0;
+        }
+        .taskbar-item {
+            height:38px; padding:0 14px; border-radius:8px;
+            background:rgba(255,255,255,0.06); color:#ddd; cursor:pointer;
+            font-size:12px; display:flex; align-items:center; gap:6px;
+            white-space:nowrap; transition:all 0.2s; position:relative;
+        }
+        .taskbar-item.active { background:rgba(255,255,255,0.2); color:white; }
+        .taskbar-item:hover { background:rgba(255,255,255,0.15); }
+        .taskbar-item .close-preview {
+            position:absolute; top:-8px; right:-6px; background:#e74c3c; color:white;
+            border-radius:50%; width:18px; height:18px; display:none; align-items:center;
+            justify-content:center; font-size:14px; line-height:1; cursor:pointer;
+            border:2px solid #0d1117;
+        }
+        .taskbar-item:hover .close-preview { display:flex; }
+
+        /* ========== 系统托盘 ========== */
+        #system-tray { display:flex; align-items:center; gap:8px; margin-left:8px; }
+        .tray-icon {
+            color:white; font-size:16px; cursor:pointer; width:28px; height:28px;
+            display:flex; align-items:center; justify-content:center; border-radius:6px; position:relative;
+        }
+        .tray-icon:hover { background:rgba(255,255,255,0.2); }
+        #notification-badge {
+            position:absolute; top:2px; right:2px; background:#e74c3c; color:white;
+            border-radius:50%; width:14px; height:14px; font-size:10px;
+            display:none; align-items:center; justify-content:center;
+        }
+
+        /* ========== 通知面板 ========== */
+        #notification-panel {
+            display:none; position:absolute; bottom:54px; right:12px; width:320px;
+            max-height:400px; background:#1e2a3a; border-radius:12px;
+            box-shadow:0 10px 40px rgba(0,0,0,0.6); z-index:10001;
+            color:white; overflow-y:auto; flex-direction:column;
+        }
+        #notification-panel.open { display:flex; }
+        .notification-item {
+            padding:12px; border-bottom:1px solid rgba(255,255,255,0.1);
+            font-size:13px; display:flex; justify-content:space-between;
+        }
+        .notif-close { cursor:pointer; color:#aaa; margin-left:8px; }
+        .notif-close:hover { color:#e74c3c; }
+
+        /* ========== 日历弹窗 ========== */
+        #calendar-popup {
+            display:none; position:absolute; bottom:54px; right:60px; width:280px;
+            background:#1e2a3a; border-radius:12px; box-shadow:0 10px 40px rgba(0,0,0,0.6);
+            z-index:10001; color:white; padding:12px; flex-direction:column;
+        }
+        #calendar-popup.open { display:flex; }
+        .calendar-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+        .calendar-grid div { text-align:center; padding:6px; border-radius:4px; cursor:pointer; }
+        .calendar-grid div:hover { background:rgba(255,255,255,0.2); }
+        .calendar-grid .today { background:#4a90d9; }
+
+        /* ========== 开始菜单 ========== */
+        #start-menu {
+            display:none; position:absolute; bottom:54px; left:12px; width:340px;
+            background:#1b2a3a; border-radius:16px 16px 4px 4px;
+            box-shadow:0 15px 40px rgba(0,0,0,0.6); z-index:10000;
+            flex-direction:column; overflow:hidden; border:1px solid rgba(255,255,255,0.1);
+            color:white;
+        }
+        #start-menu.open { display:flex; }
+        .menu-header { padding:16px; display:flex; align-items:center; gap:12px; border-bottom:1px solid rgba(255,255,255,0.1); }
+        .menu-list { list-style:none; padding:8px; flex:1; overflow-y:auto; }
+        .menu-list li {
+            display:flex; align-items:center; gap:10px; padding:12px 16px;
+            border-radius:8px; cursor:pointer; color:#ddd; font-size:14px;
+        }
+        .menu-list li:hover { background:#2b3b4c; }
+        .menu-footer { padding:8px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-around; }
+        .power-btn { background:transparent; border:none; color:white; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:14px; }
+        .power-btn:hover { background:rgba(255,255,255,0.2); }
+
+        /* ========== 右键菜单 ========== */
+        #context-menu, #file-context-menu {
+            position:absolute; background:var(--context-bg); border-radius:10px;
+            box-shadow:0 8px 30px rgba(0,0,0,0.4); z-index:100000; display:none;
+            min-width:200px; padding:4px; border:1px solid #ddd;
+        }
+        #context-menu .ctx-item, #file-context-menu div {
+            padding:10px 16px; cursor:pointer; border-radius:6px; font-size:13px;
+            display:flex; align-items:center; gap:8px;
+        }
+        #context-menu .ctx-item:hover, #file-context-menu div:hover { background:var(--hover-bg); }
+
+        /* ========== 窗口 ========== */
+        .window {
+            position:absolute; min-width:350px; min-height:200px;
+            background:var(--window-bg); border-radius:10px;
+            box-shadow:0 8px 32px rgba(0,0,0,0.5); display:flex;
+            flex-direction:column; overflow:hidden; z-index:100; border:1px solid #999;
+            animation:windowIn 0.2s ease; color:var(--text-color);
+            resize:both;
+        }
+        @keyframes windowIn { from{opacity:0;transform:scale(0.95);} to{opacity:1;transform:scale(1);} }
+        .window.focused { z-index:1000; box-shadow:0 12px 48px rgba(0,0,0,0.6); }
+        .window.maximized {
+            top:0!important; left:0!important; width:100%!important;
+            height:calc(100vh - 48px)!important; border-radius:0!important; resize:none;
+        }
+        .window.snapped-left {
+            top:0!important; left:0!important; width:50%!important;
+            height:calc(100vh - 48px)!important; border-radius:0!important; resize:none;
+        }
+        .window.snapped-right {
+            top:0!important; left:50%!important; width:50%!important;
+            height:calc(100vh - 48px)!important; border-radius:0!important; resize:none;
+        }
+        .window-titlebar {
+            background:var(--window-title-bg); color:white; height:36px;
+            display:flex; align-items:center; justify-content:space-between;
+            padding:0 10px; cursor:move; font-size:13px; font-weight:500;
+        }
+        .window-titlebar .wt-left { display:flex; align-items:center; gap:8px; pointer-events:none; }
+        .window-titlebar .wt-btns { display:flex; gap:2px; }
+        .wt-btn {
+            width:32px; height:28px; border:none; background:transparent;
+            color:white; cursor:pointer; border-radius:6px; font-size:16px;
+            display:flex; align-items:center; justify-content:center;
+        }
+        .wt-btn:hover { background:rgba(255,255,255,0.2); }
+        .wt-btn.close:hover { background:#e74c3c; }
+        .window-content { flex:1; overflow:auto; background:var(--window-bg); position:relative; }
+
+        /* 可拖拽文本框/图片框 */
+        .draggable-box {
+            position:absolute; border:2px solid transparent; cursor:move;
+            min-width:50px; min-height:30px; background:rgba(255,255,255,0.95);
+            box-shadow:0 2px 6px rgba(0,0,0,0.15);
+            padding:4px; outline:none; white-space:pre-wrap; word-break:break-word;
+        }
+        .draggable-box.selected { border-color:#4a90d9; }
+        .draggable-box img { width:100%; height:100%; pointer-events:none; }
+        .resize-handle {
+            position:absolute; width:12px; height:12px; background:#4a90d9;
+            bottom:0; right:0; cursor:nwse-resize; z-index:10;
+        }
+
+        /* ========== 资源管理器 ========== */
+        .explorer-layout { display:flex; height:100%; }
+        .explorer-sidebar {
+            width:200px; background:#f5f5f5; border-right:1px solid #ddd;
+            overflow-y:auto; padding:8px;
+        }
+        .tree-item {
+            padding:6px 8px; cursor:pointer; border-radius:4px; font-size:13px;
+            display:flex; align-items:center; gap:6px;
+        }
+        .tree-item:hover { background:#d0d8e0; }
+        .tree-item.selected { background:#bcc8d6; font-weight:bold; }
+        .explorer-main {
+            flex:1; padding:8px; display:flex; flex-wrap:wrap; align-content:flex-start;
+            gap:8px; overflow-y:auto; background:white;
+        }
+        .file-item {
+            width:80px; text-align:center; cursor:pointer; border-radius:6px;
+            padding:8px 4px; font-size:11px; border:1px solid transparent; transition:0.1s;
+        }
+        .file-item:hover { background:#e0ecf8; border-color:#adc6e0; }
+        .file-item.drag-over { background:#c8daf0; border:2px dashed #4a90d9; }
+        .file-item.selected { background:#b8d4f0; border:1px solid #4a90d9; }
+        .file-item .fi-icon { font-size:32px; display:block; margin-bottom:4px; }
+
+        /* ========== 菜单栏 ========== */
+        .menu-bar {
+            display:flex; gap:2px; background:#f0f0f0; padding:2px 8px;
+            border-bottom:1px solid #ccc; font-size:13px;
+        }
+        .menu-bar .menu-item { padding:4px 10px; cursor:pointer; border-radius:4px; }
+        .menu-bar .menu-item:hover { background:#ddd; }
+        .menu-dropdown {
+            position:absolute; background:white; border:1px solid #ccc;
+            box-shadow:0 4px 12px rgba(0,0,0,0.2); z-index:9999; display:none;
+            min-width:150px; border-radius:6px; overflow:hidden; margin-top:2px;
+        }
+        .menu-dropdown div { padding:8px 16px; cursor:pointer; font-size:13px; }
+        .menu-dropdown div:hover { background:#e8f0f8; }
+
+        /* ========== 应用组件 ========== */
+        .notepad-editor {
+            width:100%; height:100%; border:none; padding:12px;
+            font-family:'Consolas',monospace; font-size:14px; outline:none;
+            background:#fffef5;
+        }
+        .cmd-screen {
+            background:#0c0c0c; color:#0f0; font-family:'Courier New',monospace;
+            padding:10px; height:100%; overflow-y:auto; white-space:pre-wrap;
+        }
+        .store-grid { display:flex; flex-wrap:wrap; gap:12px; padding:16px; }
+        .store-card {
+            background:white; border-radius:12px; padding:16px; width:160px;
+            text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);
+        }
+        .paint-canvas { cursor:crosshair; background:white; }
+        .calculator-display { background:#eee; padding:20px; font-size:24px; text-align:right; }
+        .calc-buttons { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:10px; }
+        .calc-buttons button { padding:15px; font-size:18px; cursor:pointer; }
+        .image-viewer-img { max-width:100%; max-height:100%; object-fit:contain; display:block; margin:0 auto; }
+        .btn { padding:8px 18px; border-radius:6px; border:none; cursor:pointer; font-size:14px; }
+        .btn-primary { background:#4a90d9; color:white; }
+        .perf-meter { height:20px; background:#eee; border-radius:10px; overflow:hidden; margin:4px 0; }
+        .perf-bar { height:100%; background:linear-gradient(90deg, #4caf50, #f44336); border-radius:10px; }
+
+        #lock-screen {
+            display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.9); backdrop-filter:blur(15px); z-index:999999;
+            align-items:center; justify-content:center; flex-direction:column; color:white;
+        }
+    </style>
+</head>
+<body>
+    <!-- 开机动画 -->
+    <div id="boot-screen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999999;color:white;font-size:24px;transition:opacity 0.5s;">
+        <div style="font-size:80px;animation:bootPulse 1.2s infinite;">🏝️</div>
+        <div>Holiday OS 3.4</div>
+        <div style="width:200px;height:6px;background:#333;border-radius:3px;margin-top:40px;overflow:hidden;">
+            <div id="boot-bar" style="width:0%;height:100%;background:#4a90d9;transition:width 0.1s;"></div>
+        </div>
+    </div>
+    <style>@keyframes bootPulse{0%{transform:scale(1);opacity:1;}50%{transform:scale(1.1);opacity:0.8;}100%{transform:scale(1);opacity:1;}}</style>
+
+    <!-- 登录界面 -->
+    <div id="login-screen" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);align-items:center;justify-content:center;z-index:99999;">
+        <div style="background:white;border-radius:20px;padding:40px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,0.6);">
+            <h2>🔐 输入密码</h2>
+            <p id="login-error" style="color:red;display:none;">密码错误</p>
+            <input type="password" id="password-input" placeholder="密码（默认1234）" style="padding:12px 20px;font-size:16px;border:2px solid #ddd;border-radius:10px;width:200px;text-align:center;margin:16px 0;" autofocus>
+            <button id="login-btn" style="padding:10px 30px;background:#4a90d9;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px;">登录</button>
+            <br><small><a href="#" id="change-pwd-btn">修改密码</a></small>
+        </div>
+    </div>
+    <div id="lock-screen"><div style="font-size:60px;margin-bottom:20px;">🔒</div><h2>已锁定</h2><button id="unlock-btn" style="margin-top:20px;padding:10px 30px;background:#4a90d9;color:white;border:none;border-radius:8px;cursor:pointer;">解锁</button></div>
+
+    <div id="desktop"></div>
+
+    <div id="taskbar">
+        <button id="start-btn">🏠</button>
+        <div id="taskbar-windows"></div>
+        <div id="system-tray">
+            <div class="tray-icon" id="tray-notifications">🔔<span id="notification-badge">0</span></div>
+            <div class="tray-icon">🔊</div>
+            <div class="tray-icon">📶</div>
+            <div class="tray-icon">🔋</div>
+        </div>
+        <div id="clock" style="color:white;font-size:12px;margin-left:auto;padding:0 10px;cursor:pointer;">12:00</div>
+    </div>
+
+    <div id="start-menu">
+        <div class="menu-header"><span style="font-size:28px;">🏝️</span><div><b>Holiday 用户</b><br><small>3.4 版本</small></div></div>
+        <ul class="menu-list">
+            <li data-app="explorer">📁 资源管理器</li>
+            <li data-app="notepad">📝 记事本</li>
+            <li data-app="word">📄 Word</li>
+            <li data-app="ppt">📊 PowerPoint</li>
+            <li data-app="cmd">💻 命令提示符</li>
+            <li data-app="browser">🌐 浏览器</li>
+            <li data-app="store">🛒 应用商店</li>
+            <li data-app="paint">🎨 画图</li>
+            <li data-app="calculator">🔢 计算器</li>
+            <li data-app="taskmgr">📋 任务管理器</li>
+            <li data-app="sticky">📌 便签</li>
+            <li data-app="mediaplayer">🎵 媒体播放器</li>
+            <hr style="border-color:rgba(255,255,255,0.1); margin:4px 0;">
+            <li data-app="installer">📥 安装第三方软件</li>
+            <li data-app="settings">⚙️ 设置</li>
+            <li data-app="about">ℹ️ 关于</li>
+        </ul>
+        <div class="menu-footer">
+            <button class="power-btn" id="power-shutdown">⏻ 关机</button>
+            <button class="power-btn" id="power-restart">🔄 重启</button>
+            <button class="power-btn" id="power-sleep">🌙 睡眠</button>
+            <button class="power-btn" id="power-lock">🔒 锁定</button>
+        </div>
+    </div>
+
+    <div id="notification-panel">
+        <div style="padding:12px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;justify-content:space-between;">
+            <b>通知</b><button id="clear-notifications" style="background:transparent;border:none;color:#4a90d9;cursor:pointer;">清除全部</button>
+        </div>
+        <div id="notification-list"></div>
+    </div>
+    <div id="calendar-popup">
+        <div class="calendar-header"><button id="cal-prev">◀</button><span id="cal-month-year"></span><button id="cal-next">▶</button></div>
+        <div class="calendar-grid" id="calendar-grid"></div>
+    </div>
+
+    <div id="context-menu">
+        <div class="ctx-item" data-ctx="refresh">🔄 刷新</div>
+        <div class="ctx-item" data-ctx="newfile">📄 新建文本文件</div>
+        <div class="ctx-item" data-ctx="newfolder">📁 新建文件夹</div>
+        <div class="ctx-item" data-ctx="newsticky">📌 新建便签</div>
+        <div class="ctx-item" data-ctx="changebg">🖼️ 更换背景</div>
+        <div class="ctx-item" data-ctx="toggleTheme">🌓 切换主题</div>
+        <div class="ctx-item" data-ctx="export">💾 导出文件系统</div>
+        <div class="ctx-item" data-ctx="import">📥 导入文件系统</div>
+    </div>
+    <div id="file-context-menu">
+        <div data-file-action="rename">✏️ 重命名</div>
+        <div data-file-action="delete">🗑 删除</div>
+        <div data-file-action="copy">📋 复制</div>
+        <div data-file-action="cut">✂️ 剪切</div>
+        <div data-file-action="paste">📋 粘贴</div>
+        <div data-file-action="exportfile">📤 导出文件</div>
+        <div data-file-action="copypath">📋 复制路径</div>
+    </div>
+
+    <script>
+    (function() {
+        const OS = {
+            windows: [],
+            nextId: 1,
+            zIndex: 100,
+            focusedId: null,
+            fs: null,
+            ctrlPressed: false,
+            winPressed: false,
+            clipboard: null,
+            notifications: [],
+            settings: {
+                password: localStorage.getItem('holiday_pwd') || '1234',
+                bgImage: localStorage.getItem('holiday_bg') || '',
+                theme: localStorage.getItem('holiday_theme') || 'light',
+            },
+            _currentPreview: null,
+
+            /* ---------- 文件系统 ---------- */
+            initFS() {
+                const stored = localStorage.getItem('holiday_fs_3.4');
+                if (stored) {
+                    try { this.fs = JSON.parse(stored); } catch { this.fs = this.defaultFS(); }
+                } else {
+                    this.fs = this.defaultFS();
+                }
+                this.saveFS();
+            },
+            defaultFS() {
+                return {
+                    name:'C:', type:'folder', path:'/',
+                    children:[
+                        { name:'Users', type:'folder', path:'/Users', children:[
+                            { name:'Guest', type:'folder', path:'/Users/Guest', children:[
+                                { name:'Documents', type:'folder', path:'/Users/Guest/Documents', children:[] },
+                                { name:'Desktop', type:'folder', path:'/Users/Guest/Desktop', children:[
+                                    { name:'快捷指南.txt', type:'file', path:'/Users/Guest/Desktop/快捷指南.txt', content:'Holiday OS 3.4 新功能：Word/PPT/画图可插入文本框、图片，自由移动缩放！', ext:'txt' }
+                                ]},
+                                { name:'Downloads', type:'folder', path:'/Users/Guest/Downloads', children:[] }
+                            ]}
+                        ]},
+                        { name:'Windows', type:'folder', path:'/Windows', children:[] },
+                        { name:'$Recycle.Bin', type:'folder', path:'/$Recycle.Bin', children:[] }
+                    ]
+                };
+            },
+            saveFS() { localStorage.setItem('holiday_fs_3.4', JSON.stringify(this.fs)); },
+            findNode(path) {
+                if (path === '/' || path === '') return this.fs;
+                const parts = path.replace(/^\//, '').split('/');
+                let cur = this.fs;
+                for (let p of parts) {
+                    if (!cur.children) return null;
+                    cur = cur.children.find(c => c.name === p);
+                    if (!cur) return null;
+                }
+                return cur;
+            },
+            parentPath(path) {
+                if (path === '/' || path === '') return '/';
+                const parts = path.replace(/^\//, '').split('/');
+                parts.pop();
+                return '/' + parts.join('/');
+            },
+            addFile(parentPath, name, content='', ext='txt') {
+                const folder = this.findNode(parentPath);
+                if (!folder || folder.type !== 'folder') return false;
+                if (folder.children.find(c => c.name === name)) return false;
+                folder.children.push({ name, type:'file', path: parentPath.replace(/\/$/,'')+'/'+name, content, ext });
+                this.saveFS();
+                return true;
+            },
+            addFolder(parentPath, name) {
+                const folder = this.findNode(parentPath);
+                if (!folder || folder.type !== 'folder') return false;
+                if (folder.children.find(c => c.name === name)) return false;
+                folder.children.push({ name, type:'folder', path: parentPath.replace(/\/$/,'')+'/'+name, children:[] });
+                this.saveFS();
+                return true;
+            },
+            deleteToRecycle(path) {
+                const node = this.findNode(path);
+                if (!node) return false;
+                const recycle = this.findNode('/$Recycle.Bin');
+                if (!recycle) return false;
+                const parent = this.findNode(this.parentPath(path));
+                if (parent && parent.children) {
+                    const idx = parent.children.findIndex(c => c.path === path);
+                    if (idx !== -1) parent.children.splice(idx, 1);
+                }
+                recycle.children.push(node);
+                this.saveFS();
+                return true;
+            },
+            deletePermanently(path) {
+                if (path === '/' || path === '') return false;
+                const parent = this.findNode(this.parentPath(path));
+                if (!parent || !parent.children) return false;
+                const idx = parent.children.findIndex(c => c.path === path);
+                if (idx === -1) return false;
+                parent.children.splice(idx, 1);
+                this.saveFS();
+                return true;
+            },
+            moveNode(sourcePath, destFolderPath, copy = false) {
+                const sourceNode = this.findNode(sourcePath);
+                if (!sourceNode) return false;
+                const destFolder = this.findNode(destFolderPath);
+                if (!destFolder || destFolder.type !== 'folder') return false;
+                if (destFolder.children.find(c => c.name === sourceNode.name)) return false;
+                if (!copy) {
+                    const srcParent = this.findNode(this.parentPath(sourcePath));
+                    if (srcParent && srcParent.children) {
+                        const idx = srcParent.children.findIndex(c => c.path === sourcePath);
+                        if (idx !== -1) srcParent.children.splice(idx, 1);
+                    }
+                }
+                const newNode = JSON.parse(JSON.stringify(sourceNode));
+                function updatePath(node, newParentPath) {
+                    node.path = newParentPath.replace(/\/$/,'') + '/' + node.name;
+                    if (node.children) node.children.forEach(child => updatePath(child, node.path));
+                }
+                updatePath(newNode, destFolderPath);
+                destFolder.children.push(newNode);
+                this.saveFS();
+                return true;
+            },
+            importSingleFile(folderPath, file, callback) {
+                const reader = new FileReader();
+                if (file.type.startsWith('image/') || file.type.startsWith('audio/')) {
+                    reader.readAsDataURL(file);
+                    reader.onload = () => {
+                        const ext = file.name.split('.').pop();
+                        this.addFile(folderPath, file.name, reader.result, ext);
+                        if (callback) callback();
+                    };
+                } else {
+                    reader.readAsText(file);
+                    reader.onload = () => {
+                        const ext = file.name.split('.').pop();
+                        this.addFile(folderPath, file.name, reader.result, ext);
+                        if (callback) callback();
+                    };
+                }
+            },
+            exportSingleFile(node) {
+                if (node.type !== 'file') return;
+                const content = node.content || '';
+                const name = node.name;
+                const ext = node.ext;
+                let blob;
+                if (['png','jpg','jpeg','gif','svg'].includes(ext)) {
+                    if (content.startsWith('data:')) {
+                        const arr = content.split(',');
+                        const mime = arr[0].match(/:(.*?);/)[1];
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+                        blob = new Blob([u8arr], { type: mime });
+                    } else {
+                        blob = new Blob([content], { type: 'text/plain' });
+                    }
+                } else {
+                    blob = new Blob([content], { type: 'application/octet-stream' });
+                }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = name; a.click();
+                URL.revokeObjectURL(url);
+            },
+            exportFS() {
+                const data = JSON.stringify(this.fs);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = 'holiday_filesystem.json'; a.click();
+                URL.revokeObjectURL(url);
+            },
+            importFS(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        if (data && data.type === 'folder') {
+                            this.fs = data;
+                            this.saveFS();
+                            renderDesktopIcons();
+                            alert('文件系统导入成功！');
+                        } else throw new Error('格式错误');
+                    } catch (err) { alert('无效的文件系统文件'); }
+                };
+                reader.readAsText(file);
+            },
+            saveSession() {
+                const apps = this.windows.map(w => ({
+                    appType: w.appType, title: w.title, icon: w.icon,
+                    extra: w.extra, width: w.width, height: w.height,
+                    minimized: w.minimized, maximized: w.maximized
+                }));
+                localStorage.setItem('holiday_session_3.4', JSON.stringify(apps));
+            },
+            restoreSession() {
+                const saved = localStorage.getItem('holiday_session_3.4');
+                if (saved) {
+                    try {
+                        const apps = JSON.parse(saved);
+                        if (apps.length > 0 && confirm(`恢复 ${apps.length} 个应用？`)) {
+                            apps.forEach(app => {
+                                this.createWindow(app.appType, app.title, app.icon, app.width, app.height, app.extra);
+                            });
+                        }
+                    } catch (e) {}
+                }
+            },
+
+            /* ---------- 窗口管理 ---------- */
+            createWindow(appType, title, icon, width, height, extra = {}) {
+                const singleInstanceApps = ['explorer','cmd','browser','store','paint','calculator','taskmgr','settings','installer','about','mediaplayer'];
+                if ((appType === 'notepad' || appType === 'word' || appType === 'ppt') && extra.filePath) {
+                    const existing = this.windows.find(w => w.appType === appType && w.extra.filePath === extra.filePath && !w._closed);
+                    if (existing) { this.restoreWindow(existing.id); this.focusWindow(existing.id); return existing; }
+                }
+                if (singleInstanceApps.includes(appType)) {
+                    const existing = this.windows.find(w => w.appType === appType && !w._closed);
+                    if (existing) { this.restoreWindow(existing.id); this.focusWindow(existing.id); return existing; }
+                }
+                const id = this.nextId++;
+                const x = 60 + (this.windows.length % 5) * 30;
+                const y = 40 + (this.windows.length % 5) * 30;
+                const win = { id, appType, title, icon, x, y, width, height, minimized: false, maximized: false, extra, _closed: false };
+                this.windows.push(win);
+                this.renderWindow(win);
+                this.focusWindow(id);
+                this.saveSession();
+                return win;
+            },
+            renderWindow(win) {
+                const old = document.querySelector(`[data-wid="${win.id}"]`);
+                if (old) old.remove();
+
+                const winEl = document.createElement('div');
+                winEl.className = `window ${win.maximized ? 'maximized' : ''}`;
+                winEl.dataset.wid = win.id;
+                winEl.style.left = win.x + 'px';
+                winEl.style.top = win.y + 'px';
+                winEl.style.width = win.width + 'px';
+                winEl.style.height = win.height + 'px';
+                winEl.style.zIndex = this.zIndex++;
+
+                winEl.innerHTML = `
+                    <div class="window-titlebar" data-wid="${win.id}">
+                        <div class="wt-left">${win.icon} ${win.title}</div>
+                        <div class="wt-btns">
+                            <button class="wt-btn minimize">─</button>
+                            <button class="wt-btn maximize">□</button>
+                            <button class="wt-btn close">✕</button>
+                        </div>
+                    </div>
+                    <div class="window-content" data-wid="${win.id}"></div>
+                `;
+                document.body.appendChild(winEl);
+                win.element = winEl;
+
+                const titlebar = winEl.querySelector('.window-titlebar');
+                let startX,startY,origLeft,origTop;
+                titlebar.addEventListener('mousedown', (e) => {
+                    if (e.target.closest('.wt-btn')) return;
+                    this.focusWindow(win.id);
+                    if (win.maximized) return;
+                    startX = e.clientX; startY = e.clientY;
+                    origLeft = parseInt(winEl.style.left); origTop = parseInt(winEl.style.top);
+                    function onMove(e) {
+                        winEl.style.left = Math.max(0, origLeft + e.clientX - startX) + 'px';
+                        winEl.style.top = Math.max(0, origTop + e.clientY - startY) + 'px';
+                        winEl.classList.remove('snapped-left','snapped-right');
+                    }
+                    function onUp() {
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                        OS.snapWindow(win);
+                    }
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                    e.preventDefault();
+                });
+
+                winEl.querySelector('.minimize').addEventListener('click', () => this.minimizeWindow(win.id));
+                winEl.querySelector('.maximize').addEventListener('click', () => this.toggleMaximize(win.id));
+                winEl.querySelector('.close').addEventListener('click', () => this.closeWindow(win.id));
+                winEl.addEventListener('mousedown', () => this.focusWindow(win.id));
+
+                this.initWindowContent(win);
+                this.updateTaskbar();
+            },
+            focusWindow(id) {
+                this.focusedId = id;
+                this.windows.forEach(w => {
+                    if (w.element) {
+                        w.element.classList.toggle('focused', w.id === id);
+                        w.element.style.zIndex = w.id === id ? this.zIndex++ : w.element.style.zIndex;
+                    }
+                });
+                this.updateTaskbar();
+            },
+            closeWindow(id) {
+                const win = this.windows.find(w => w.id === id);
+                if (!win) return;
+                if (win._perfInterval) clearInterval(win._perfInterval);
+                win._closed = true;
+                win.element?.remove();
+                this.windows = this.windows.filter(w => w.id !== id);
+                if (this.focusedId === id) this.focusedId = this.windows.length ? this.windows[this.windows.length-1].id : null;
+                this.updateTaskbar();
+                this.saveSession();
+                renderDesktopIcons();
+            },
+            minimizeWindow(id) {
+                const win = this.windows.find(w => w.id === id);
+                if (!win) return;
+                win.minimized = true;
+                if (win.element) win.element.style.display = 'none';
+                if (this.focusedId === id) {
+                    const visible = this.windows.filter(w => !w.minimized);
+                    this.focusedId = visible.length ? visible[visible.length-1].id : null;
+                }
+                this.updateTaskbar();
+            },
+            restoreWindow(id) {
+                const win = this.windows.find(w => w.id === id);
+                if (!win) return;
+                win.minimized = false;
+                if (win.element) win.element.style.display = '';
+                this.focusWindow(id);
+                this.updateTaskbar();
+            },
+            toggleMaximize(id, forceState) {
+                const win = this.windows.find(w => w.id === id);
+                if (!win?.element) return;
+                if (forceState !== undefined) { win.maximized = forceState; }
+                else { win.maximized = !win.maximized; }
+                if (win.maximized) {
+                    win.element.classList.add('maximized');
+                    win.element.classList.remove('snapped-left','snapped-right');
+                } else {
+                    win.element.classList.remove('maximized');
+                    win.element.style.left = win.x + 'px';
+                    win.element.style.top = win.y + 'px';
+                    win.element.style.width = win.width + 'px';
+                    win.element.style.height = win.height + 'px';
+                }
+            },
+            updateTaskbar() {
+                const container = document.getElementById('taskbar-windows');
+                container.innerHTML = '';
+                this.windows.forEach(win => {
+                    const btn = document.createElement('div');
+                    btn.className = `taskbar-item ${this.focusedId === win.id && !win.minimized ? 'active' : ''}`;
+                    btn.innerHTML = `<span>${win.icon}</span> ${win.title}`;
+                    const closeBtn = document.createElement('span');
+                    closeBtn.className = 'close-preview'; closeBtn.innerHTML = '×';
+                    closeBtn.addEventListener('click', (e) => { e.stopPropagation(); this.closeWindow(win.id); });
+                    btn.appendChild(closeBtn);
+                    btn.addEventListener('click', (e) => {
+                        if (e.target === closeBtn) return;
+                        if (win.minimized) this.restoreWindow(win.id);
+                        else if (this.focusedId === win.id) this.minimizeWindow(win.id);
+                        else this.focusWindow(win.id);
+                    });
+                    btn.addEventListener('mouseenter', () => this.showPreview(win, btn));
+                    btn.addEventListener('mouseleave', () => this.hidePreview());
+                    container.appendChild(btn);
+                });
+            },
+            showPreview(win, anchor) {
+                this.hidePreview();
+                const preview = document.createElement('div');
+                preview.style.cssText = `
+                    position:absolute; bottom:54px; background:#1e1e2e; border:1px solid #444;
+                    border-radius:12px; padding:8px; color:white; font-size:12px;
+                    display:flex; flex-direction:column; align-items:center;
+                    box-shadow:0 10px 30px rgba(0,0,0,0.5); z-index:9998; min-width:160px;
+                `;
+                preview.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;width:100%;align-items:center;margin-bottom:4px;">
+                        <span>${win.icon} ${win.title}</span>
+                        <button style="background:#e74c3c;border:none;color:white;border-radius:4px;width:20px;height:20px;cursor:pointer;">✕</button>
+                    </div>
+                    <div style="width:160px;height:90px;background:#2a2a3a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:32px;">📄</div>
+                `;
+                preview.querySelector('button').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.closeWindow(win.id);
+                    this.hidePreview();
+                });
+                document.body.appendChild(preview);
+                this._currentPreview = preview;
+                const rect = anchor.getBoundingClientRect();
+                preview.style.left = Math.min(rect.left, window.innerWidth - 180) + 'px';
+                preview.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+            },
+            hidePreview() {
+                if (this._currentPreview) {
+                    this._currentPreview.remove();
+                    this._currentPreview = null;
+                }
+            },
+            snapWindow(win) {
+                if (!win || win.maximized || !win.element) return;
+                const rect = win.element.getBoundingClientRect();
+                const screenW = window.innerWidth;
+                const threshold = 30;
+                if (rect.left < threshold && rect.top > 0) {
+                    win.element.classList.add('snapped-left');
+                    win.element.classList.remove('snapped-right','maximized');
+                } else if (rect.right > screenW - threshold && rect.top > 0) {
+                    win.element.classList.add('snapped-right');
+                    win.element.classList.remove('snapped-left','maximized');
+                } else if (rect.top < threshold && rect.left > 0 && rect.right < screenW) {
+                    this.toggleMaximize(win.id, true);
+                } else {
+                    win.element.classList.remove('snapped-left','snapped-right');
+                }
+            },
+            pushNotification(message, title = 'Holiday OS') {
+                const notif = { title, message, time: new Date().toLocaleTimeString() };
+                this.notifications.unshift(notif);
+                if (this.notifications.length > 50) this.notifications.pop();
+                this.updateNotificationBadge();
+                this.renderNotificationPanel();
+            },
+            updateNotificationBadge() {
+                const badge = document.getElementById('notification-badge');
+                if (this.notifications.length > 0) {
+                    badge.style.display = 'flex';
+                    badge.textContent = this.notifications.length > 99 ? '99+' : this.notifications.length;
+                } else { badge.style.display = 'none'; }
+            },
+            renderNotificationPanel() {
+                const list = document.getElementById('notification-list');
+                if (!list) return;
+                list.innerHTML = '';
+                this.notifications.forEach((n, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'notification-item';
+                    div.innerHTML = `<div><b>${n.title}</b><br><small>${n.message}</small><br><small style="color:#888;">${n.time}</small></div><span class="notif-close" data-index="${i}">✕</span>`;
+                    list.appendChild(div);
+                });
+                list.querySelectorAll('.notif-close').forEach(span => {
+                    span.addEventListener('click', (e) => {
+                        const idx = parseInt(span.dataset.index);
+                        this.notifications.splice(idx, 1);
+                        this.updateNotificationBadge();
+                        this.renderNotificationPanel();
+                    });
+                });
+            },
+            copyFile(path) { this.clipboard = { path, action: 'copy' }; this.pushNotification('已复制到剪贴板'); },
+            cutFile(path) { this.clipboard = { path, action: 'cut' }; this.pushNotification('已剪切到剪贴板'); },
+            pasteFile(destFolderPath) {
+                if (!this.clipboard) return false;
+                const { path, action } = this.clipboard;
+                const success = this.moveNode(path, destFolderPath, action === 'copy');
+                if (success) {
+                    if (action === 'cut') this.clipboard = null;
+                    this.pushNotification('粘贴成功');
+                    return true;
+                } else { alert('粘贴失败'); return false; }
+            },
+
+            /* ---------- 窗口内容初始化入口 ---------- */
+            initWindowContent(win) {
+                const content = win.element?.querySelector('.window-content');
+                if (!content) return;
+                switch (win.appType) {
+                    case 'explorer': this.initExplorer(win, content); break;
+                    case 'notepad': this.initNotepad(win, content); break;
+                    case 'word': this.initWord(win, content); break;
+                    case 'ppt': this.initPPT(win, content); break;
+                    case 'imageviewer': this.initImageViewer(win, content); break;
+                    case 'cmd': this.initCmd(win, content); break;
+                    case 'browser': this.initBrowser(win, content); break;
+                    case 'store': this.initStore(win, content); break;
+                    case 'paint': this.initPaint(win, content); break;
+                    case 'calculator': this.initCalculator(win, content); break;
+                    case 'taskmgr': this.initTaskMgr(win, content); break;
+                    case 'settings': this.initSettings(content); break;
+                    case 'installer': this.initInstaller(content); break;
+                    case 'about': this.initAbout(content); break;
+                    case 'sticky': this.initSticky(win, content); break;
+                    case 'mediaplayer': this.initMediaPlayer(win, content); break;
+                }
+            },
+
+            /* ---------- 资源管理器 ---------- */
+            initExplorer(win, el) {
+                const currentPath = win.extra.currentPath || '/Users/Guest/Documents';
+                win.extra.currentPath = currentPath;
+                const node = this.findNode(currentPath);
+                el.innerHTML = `
+                    <div class="menu-bar">
+                        <div class="menu-item" data-menu="file">文件 ▼</div>
+                        <div class="menu-item" data-menu="edit">编辑 ▼</div>
+                        <div class="menu-item" data-menu="view">查看 ▼</div>
+                    </div>
+                    <div style="display:flex;padding:4px 8px;background:#f0f0f0;border-bottom:1px solid #ccc;">
+                        📂<input class="addr-input" style="flex:1;margin:0 4px;" value="${currentPath}"><button class="go-btn btn btn-primary">前往</button>
+                    </div>
+                    <div class="explorer-layout">
+                        <div class="explorer-sidebar"></div>
+                        <div class="explorer-main" tabindex="0"></div>
+                    </div>`;
+                const addrInput = el.querySelector('.addr-input');
+                el.querySelector('.go-btn').addEventListener('click', () => {
+                    const np = addrInput.value.trim();
+                    if (this.findNode(np)) { win.extra.currentPath = np; this.initExplorer(win, el); }
+                    else alert('路径无效');
+                });
+                const menuBar = el.querySelector('.menu-bar');
+                menuBar.querySelectorAll('.menu-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const menu = item.dataset.menu;
+                        const existing = item.querySelector('.menu-dropdown');
+                        if (existing) { existing.remove(); return; }
+                        const dropdown = document.createElement('div');
+                        dropdown.className = 'menu-dropdown'; dropdown.style.display = 'block';
+                        if (menu === 'file') dropdown.innerHTML = `<div>新建文件</div><div>新建文件夹</div><div>导入文件</div><div>返回上级</div>`;
+                        else if (menu === 'edit') dropdown.innerHTML = `<div>全选 (Ctrl+A)</div>`;
+                        else if (menu === 'view') dropdown.innerHTML = `<div>刷新</div>`;
+                        dropdown.querySelectorAll('div').forEach(div => {
+                            div.addEventListener('click', () => {
+                                if (div.textContent.includes('新建文件')) {
+                                    const nm = prompt('文件名：','新建文档.txt');
+                                    if (nm) { this.addFile(currentPath, nm); this.initExplorer(win, el); renderDesktopIcons(); }
+                                } else if (div.textContent.includes('新建文件夹')) {
+                                    const nm = prompt('文件夹名：','新建文件夹');
+                                    if (nm) { this.addFolder(currentPath, nm); this.initExplorer(win, el); renderDesktopIcons(); }
+                                } else if (div.textContent.includes('导入文件')) {
+                                    const input = document.createElement('input');
+                                    input.type = 'file'; input.multiple = true;
+                                    input.onchange = (ev) => {
+                                        [...ev.target.files].forEach(f => this.importSingleFile(currentPath, f, () => {}));
+                                        this.initExplorer(win, el); renderDesktopIcons();
+                                    };
+                                    input.click();
+                                } else if (div.textContent.includes('返回上级')) {
+                                    const pp = this.parentPath(currentPath);
+                                    if (this.findNode(pp)) { win.extra.currentPath = pp; this.initExplorer(win, el); }
+                                } else if (div.textContent.includes('全选')) {
+                                    el.querySelectorAll('.file-item').forEach(it => it.classList.add('selected'));
+                                } else if (div.textContent.includes('刷新')) { this.initExplorer(win, el); }
+                                dropdown.remove();
+                            });
+                        });
+                        item.appendChild(dropdown);
+                        document.addEventListener('click', () => dropdown.remove(), { once: true });
+                    });
+                });
+                const sidebar = el.querySelector('.explorer-sidebar');
+                const buildTree = (nd, depth=0) => {
+                    if (!nd || nd.type !== 'folder') return '';
+                    const indent = depth*14;
+                    const sel = nd.path === currentPath ? 'selected' : '';
+                    let html = `<div class="tree-item ${sel}" data-path="${nd.path}" style="padding-left:${8+indent}px">📁 ${nd.name}</div>`;
+                    if (nd.children) nd.children.filter(c=>c.type==='folder').forEach(c => html += buildTree(c, depth+1));
+                    return html;
+                };
+                sidebar.innerHTML = buildTree(this.fs);
+                sidebar.querySelectorAll('.tree-item').forEach(item => {
+                    item.addEventListener('click', () => { win.extra.currentPath = item.dataset.path; this.initExplorer(win, el); });
+                });
+                const main = el.querySelector('.explorer-main');
+                let lastSelected = null;
+                main.addEventListener('keydown', (e) => {
+                    if (e.ctrlKey && e.key === 'a') { e.preventDefault(); main.querySelectorAll('.file-item').forEach(it => it.classList.add('selected')); }
+                    if (e.ctrlKey && e.key === 'c') { e.preventDefault(); const sel = [...main.querySelectorAll('.file-item.selected')][0]; if(sel) this.copyFile(sel.dataset.path); }
+                    if (e.ctrlKey && e.key === 'x') { e.preventDefault(); const sel = [...main.querySelectorAll('.file-item.selected')][0]; if(sel) this.cutFile(sel.dataset.path); }
+                    if (e.ctrlKey && e.key === 'v') { e.preventDefault(); this.pasteFile(currentPath); this.initExplorer(win, el); renderDesktopIcons(); }
+                });
+                if (node && node.children) {
+                    node.children.forEach(child => {
+                        const div = document.createElement('div');
+                        div.className = 'file-item'; div.dataset.path = child.path; div.dataset.type = child.type;
+                        const iconEmoji = child.type==='folder'?'📁':(child.ext==='txt'?'📄':(child.ext==='docx'?'📝':(child.ext==='pptx'?'📊':(['png','jpg','jpeg','gif'].includes(child.ext)?'🖼️':(['mp3','wav','ogg'].includes(child.ext)?'🎵':'📎')))));
+                        div.innerHTML = `<span class="fi-icon">${iconEmoji}</span>${child.name}`;
+                        div.draggable = true;
+                        div.addEventListener('click', (e) => {
+                            if (e.ctrlKey) div.classList.toggle('selected');
+                            else if (e.shiftKey && lastSelected) {
+                                const items = [...main.querySelectorAll('.file-item')];
+                                const i1 = items.indexOf(div), i2 = items.indexOf(lastSelected);
+                                const [s,e] = [Math.min(i1,i2), Math.max(i1,i2)];
+                                items.forEach((it,i) => { if(i>=s&&i<=e) it.classList.add('selected'); else it.classList.remove('selected'); });
+                            } else {
+                                main.querySelectorAll('.file-item').forEach(it => it.classList.remove('selected'));
+                                div.classList.add('selected'); lastSelected = div;
+                            }
+                        });
+                        div.addEventListener('dblclick', () => {
+                            if (child.type==='folder') { win.extra.currentPath = child.path; this.initExplorer(win, el); }
+                            else openFileByPath(child.path);
+                        });
+                        div.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', child.path); e.dataTransfer.effectAllowed = 'all'; });
+                        div.addEventListener('dragover', (e) => { if(child.type==='folder'){ e.preventDefault(); div.classList.add('drag-over'); } });
+                        div.addEventListener('dragleave', () => div.classList.remove('drag-over'));
+                        div.addEventListener('drop', (e) => {
+                            e.preventDefault(); div.classList.remove('drag-over');
+                            const src = e.dataTransfer.getData('text/plain');
+                            if(src && src!==child.path && this.moveNode(src, child.path, e.ctrlKey)) { this.initExplorer(win, el); renderDesktopIcons(); }
+                        });
+                        div.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            main.querySelectorAll('.file-item').forEach(it => it.classList.remove('selected'));
+                            div.classList.add('selected');
+                            const fmenu = document.getElementById('file-context-menu');
+                            fmenu.style.display = 'block'; fmenu.style.left = e.clientX+'px'; fmenu.style.top = e.clientY+'px';
+                            fmenu.dataset.targetPath = child.path;
+                        });
+                        main.appendChild(div);
+                    });
+                }
+            },
+                        /* ---------- 记事本 ---------- */
+            initNotepad(win, el) {
+                const fp = win.extra.filePath;
+                const content = fp ? (this.findNode(fp)?.content || '') : '';
+                el.innerHTML = `<textarea class="notepad-editor">${content.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>`;
+                const ta = el.querySelector('textarea'); ta.focus();
+                ta.addEventListener('keydown', (e) => {
+                    if (e.key === 's' && (e.ctrlKey||this.ctrlPressed)) {
+                        e.preventDefault();
+                        if (fp) { const nd = this.findNode(fp); if(nd){ nd.content = ta.value; this.saveFS(); this.pushNotification('已保存'); } }
+                        else {
+                            const nm = prompt('保存为：','新建文档.txt');
+                            if (nm && this.addFile('/Users/Guest/Desktop', nm, ta.value)) {
+                                win.extra.filePath = '/Users/Guest/Desktop/'+nm;
+                                win.title = nm; this.updateTaskbar(); renderDesktopIcons();
+                            }
+                        }
+                    }
+                });
+            },
+
+            /* ---------- 增强版 Word（支持插入文本框、图片、字体，可移动/缩放） ---------- */
+            initWord(win, el) {
+                const fp = win.extra.filePath;
+                const initialContent = win.extra.content || '';
+                el.innerHTML = `
+                    <div class="office-ribbon">
+                        <select class="font-select">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Courier New">Courier New</option>
+                            <option value="微软雅黑">微软雅黑</option>
+                            <option value="宋体">宋体</option>
+                        </select>
+                        <select class="size-select">
+                            <option value="2">10</option><option value="3" selected>12</option>
+                            <option value="4">14</option><option value="5">18</option>
+                            <option value="6">24</option><option value="7">36</option>
+                        </select>
+                        <button data-cmd="bold"><b>B</b></button>
+                        <button data-cmd="italic"><i>I</i></button>
+                        <button data-cmd="underline"><u>U</u></button>
+                        <button class="insert-textbox">📝 插入文本框</button>
+                        <button class="insert-image">🖼️ 插入图片</button>
+                        <button id="word-save">💾 保存</button>
+                    </div>
+                    <div class="word-editor" contenteditable="true" style="position:relative;min-height:100%;padding:24px;background:white;outline:none;">${initialContent}</div>`;
+                const editor = el.querySelector('.word-editor');
+                // 字体/字号
+                el.querySelector('.font-select').addEventListener('change', (e) => {
+                    document.execCommand('fontName', false, e.target.value); editor.focus();
+                });
+                el.querySelector('.size-select').addEventListener('change', (e) => {
+                    document.execCommand('fontSize', false, e.target.value); editor.focus();
+                });
+                el.querySelectorAll('[data-cmd]').forEach(btn => {
+                    btn.addEventListener('click', () => { document.execCommand(btn.dataset.cmd); editor.focus(); });
+                });
+                // 保存
+                el.querySelector('#word-save').addEventListener('click', () => {
+                    if (fp) {
+                        const nd = this.findNode(fp);
+                        if(nd){ nd.content = editor.innerHTML; this.saveFS(); alert('Word 已保存'); }
+                    } else {
+                        const nm = prompt('保存为：','文档.docx');
+                        if (nm && this.addFile('/Users/Guest/Documents', nm, editor.innerHTML, 'docx')) {
+                            win.extra.filePath = '/Users/Guest/Documents/'+nm; win.title = nm;
+                            this.updateTaskbar(); renderDesktopIcons();
+                        }
+                    }
+                });
+                // 插入文本框（可移动+缩放）
+                el.querySelector('.insert-textbox').addEventListener('click', () => {
+                    const box = document.createElement('div'); box.className = 'draggable-box'; box.contentEditable = true;
+                    box.style.cssText = 'top:50px;left:50px;width:200px;height:80px;';
+                    box.innerHTML = '<span>文本框</span>';
+                    makeDraggableAndResizable(box, editor);
+                    editor.appendChild(box);
+                });
+                // 插入图片（可移动+缩放）
+                el.querySelector('.insert-image').addEventListener('click', () => {
+                    const input = document.createElement('input'); input.type='file'; input.accept='image/*';
+                    input.onchange = (ev) => {
+                        const file = ev.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const imgBox = document.createElement('div'); imgBox.className = 'draggable-box';
+                            imgBox.style.cssText = 'top:80px;left:80px;width:200px;height:150px;';
+                            imgBox.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;">`;
+                            makeDraggableAndResizable(imgBox, editor);
+                            editor.appendChild(imgBox);
+                        };
+                        reader.readAsDataURL(file);
+                    };
+                    input.click();
+                });
+            },
+
+            /* ---------- 增强版 PPT（每页可插入文本框、图片，可移动/缩放） ---------- */
+            initPPT(win, el) {
+                let slides = [];
+                try { slides = JSON.parse(win.extra.content || '[]'); } catch(e) { slides = []; }
+                if (!slides.length) slides = [{ title:'标题', text:'副标题', elements:[] }];
+                let cur = 0;
+
+                const renderSlide = () => {
+                    const slideData = slides[cur];
+                    const slideDiv = el.querySelector('.ppt-slide');
+                    slideDiv.innerHTML = '';
+                    if (slideData.elements) {
+                        slideData.elements.forEach(elem => {
+                            const div = document.createElement('div');
+                            if (elem.type === 'text') {
+                                div.className = 'draggable-box'; div.contentEditable = true;
+                                div.textContent = elem.content;
+                            } else if (elem.type === 'image') {
+                                div.className = 'draggable-box';
+                                div.innerHTML = `<img src="${elem.src}" style="width:100%;height:100%;">`;
+                            }
+                            if (elem.style) div.style.cssText = elem.style;
+                            makeDraggableAndResizable(div, slideDiv);
+                            slideDiv.appendChild(div);
+                        });
+                    }
+                    el.querySelector('.slide-title').textContent = slideData.title;
+                    el.querySelector('.slide-num').textContent = `幻灯片 ${cur+1}/${slides.length}`;
+                };
+
+                el.innerHTML = `
+                    <div class="office-ribbon">
+                        <button class="new-slide">➕ 新建</button>
+                        <button class="del-slide">🗑 删除</button>
+                        <button class="insert-textbox">📝 文本框</button>
+                        <button class="insert-image">🖼️ 图片</button>
+                        <button class="prev-slide">◀</button>
+                        <button class="next-slide">▶</button>
+                        <span class="slide-num"></span>
+                        <button id="ppt-save" style="margin-left:auto;">💾 保存</button>
+                    </div>
+                    <div class="ppt-slide-container" style="flex:1;background:#e8e8e8;display:flex;flex-direction:column;">
+                        <h2 class="slide-title" contenteditable style="text-align:center;margin-top:20px;">标题</h2>
+                        <div class="ppt-slide" style="position:relative;flex:1;margin:20px;background:white;box-shadow:0 2px 10px rgba(0,0,0,0.2);"></div>
+                    </div>`;
+                renderSlide();
+
+                el.querySelector('.new-slide').addEventListener('click', () => {
+                    slides.push({ title:'新幻灯片', elements:[] }); cur = slides.length-1; renderSlide();
+                });
+                el.querySelector('.del-slide').addEventListener('click', () => {
+                    if (slides.length > 1) { slides.splice(cur,1); if (cur >= slides.length) cur--; renderSlide(); }
+                    else alert('至少保留一张幻灯片');
+                });
+                el.querySelector('.prev-slide').addEventListener('click', () => {
+                    if (cur > 0) { cur--; renderSlide(); }
+                });
+                el.querySelector('.next-slide').addEventListener('click', () => {
+                    if (cur < slides.length-1) { cur++; renderSlide(); }
+                });
+                el.querySelector('#ppt-save').addEventListener('click', () => {
+                    const slideEl = el.querySelector('.ppt-slide');
+                    const elements = [...slideEl.children].map(child => {
+                        const style = child.getAttribute('style');
+                        const type = child.querySelector('img') ? 'image' : 'text';
+                        const content = type === 'text' ? child.textContent : '';
+                        const src = type === 'image' ? child.querySelector('img').src : '';
+                        return { type, content, src, style };
+                    });
+                    slides[cur].elements = elements;
+                    const fp = win.extra.filePath;
+                    if (fp) {
+                        const nd = this.findNode(fp);
+                        if (nd) { nd.content = JSON.stringify(slides); this.saveFS(); alert('PPT 已保存'); }
+                    } else {
+                        const nm = prompt('保存为：','演示文稿.pptx');
+                        if (nm && this.addFile('/Users/Guest/Documents', nm, JSON.stringify(slides), 'pptx')) {
+                            win.extra.filePath = '/Users/Guest/Documents/'+nm; win.title = nm;
+                            this.updateTaskbar(); renderDesktopIcons();
+                        }
+                    }
+                });
+                // 插入文本框
+                el.querySelector('.insert-textbox').addEventListener('click', () => {
+                    const box = document.createElement('div'); box.className='draggable-box'; box.contentEditable=true;
+                    box.style.cssText = 'top:50px;left:50px;width:200px;height:80px;';
+                    box.textContent = '文本框';
+                    makeDraggableAndResizable(box, el.querySelector('.ppt-slide'));
+                    el.querySelector('.ppt-slide').appendChild(box);
+                });
+                // 插入图片
+                el.querySelector('.insert-image').addEventListener('click', () => {
+                    const input = document.createElement('input'); input.type='file'; input.accept='image/*';
+                    input.onchange = (ev) => {
+                        const file = ev.target.files[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            const imgBox = document.createElement('div'); imgBox.className='draggable-box';
+                            imgBox.style.cssText = 'top:80px;left:80px;width:200px;height:150px;';
+                            imgBox.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;">`;
+                            makeDraggableAndResizable(imgBox, el.querySelector('.ppt-slide'));
+                            el.querySelector('.ppt-slide').appendChild(imgBox);
+                        };
+                        reader.readAsDataURL(file);
+                    };
+                    input.click();
+                });
+            },
+
+            /* ---------- 增强画图（支持导入虚拟磁盘图片、插入文本框、可移动/缩放元素） ---------- */
+            initPaint(win, el) {
+                el.innerHTML = `
+                    <div class="office-ribbon">
+                        <input type="color" id="pcolor" value="#000000">
+                        <button id="pbrush">🖌️画笔</button>
+                        <button id="peraser">🧹橡皮</button>
+                        <button id="pclear">🗑清空</button>
+                        <button id="pimport">📁从磁盘导入</button>
+                        <button id="paddtext">📝 添加文字</button>
+                        <button id="psave">💾 保存为图片</button>
+                    </div>
+                    <canvas id="pcanvas" width="600" height="400" style="background:white;cursor:crosshair;"></canvas>`;
+                const canvas = el.querySelector('#pcanvas'), ctx = canvas.getContext('2d');
+                let painting = false, eraser = false;
+                canvas.onmousedown = e => {
+                    painting = true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY);
+                };
+                canvas.onmousemove = e => {
+                    if (!painting) return;
+                    if (eraser) ctx.clearRect(e.offsetX-5, e.offsetY-5, 10, 10);
+                    else {
+                        ctx.strokeStyle = document.getElementById('pcolor').value;
+                        ctx.lineWidth = 3; ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke();
+                    }
+                };
+                canvas.onmouseup = () => painting = false;
+                el.querySelector('#pbrush').onclick = () => eraser = false;
+                el.querySelector('#peraser').onclick = () => eraser = true;
+                el.querySelector('#pclear').onclick = () => ctx.clearRect(0,0,canvas.width,canvas.height);
+                el.querySelector('#pimport').onclick = () => {
+                    const path = prompt('输入图片路径：');
+                    if (!path) return;
+                    const nd = this.findNode(path);
+                    if (nd?.content?.startsWith('data:image')) {
+                        const img = new Image();
+                        img.onload = () => ctx.drawImage(img, 0, 0);
+                        img.src = nd.content;
+                    } else alert('无效图片文件');
+                };
+                // 插入文本框（绝对定位在画布父容器上）
+                el.querySelector('#paddtext').addEventListener('click', () => {
+                    const textDiv = document.createElement('div');
+                    textDiv.className = 'draggable-box'; textDiv.contentEditable = true;
+                    textDiv.style.cssText = 'position:absolute;top:300px;left:100px;width:150px;height:40px;';
+                    textDiv.innerText = '文字';
+                    makeDraggableAndResizable(textDiv, canvas.parentNode);
+                    canvas.parentNode.appendChild(textDiv);
+                });
+                el.querySelector('#psave').onclick = () => {
+                    const dataUrl = canvas.toDataURL('image/png');
+                    const nm = prompt('保存文件名：','绘画.png');
+                    if (nm) { this.addFile('/Users/Guest/Documents', nm, dataUrl, 'png'); alert('已保存'); }
+                };
+            },
+
+            /* ---------- 图片查看器 ---------- */
+            initImageViewer(win, el) {
+                const node = this.findNode(win.extra.filePath);
+                el.innerHTML = node?.content?.startsWith('data:image')
+                    ? `<img class="image-viewer-img" src="${node.content}" alt="${node.name}">`
+                    : '<p>无法预览</p>';
+            },
+
+            /* ---------- 命令提示符 ---------- */
+            initCmd(win, el) {
+                el.innerHTML = `<div class="cmd-screen"><div>Holiday OS 3.4 命令提示符</div><div class="cmd-history"></div><div class="cmd-line"><span>C:\\Users\\Guest&gt; </span><input class="cmd-input" autofocus></div></div>`;
+                const input = el.querySelector('.cmd-input'), history = el.querySelector('.cmd-history');
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const cmd = input.value.trim();
+                        history.innerHTML += `<div>C:\\Users\\Guest&gt; ${cmd}</div>`;
+                        const args = cmd.split(' '); const comm = args[0].toLowerCase();
+                        let out = '';
+                        switch(comm) {
+                            case 'help': out = '命令: dir, cd, type, echo, cls, date, ver, exit, tasklist, kill [PID], start [app]'; break;
+                            case 'dir': {
+                                const nd = this.findNode(win.extra.currentPath||'/Users/Guest');
+                                out = nd?.children ? nd.children.map(c => `${c.type==='folder'?'<DIR>':'     '} ${c.name}`).join('<br>') : '目录不存在';
+                                break;
+                            }
+                            case 'cls': history.innerHTML = ''; input.value = ''; return;
+                            case 'ver': out = 'Holiday OS 3.4 Extended'; break;
+                            case 'echo': out = args.slice(1).join(' '); break;
+                            case 'date': out = new Date().toLocaleDateString(); break;
+                            case 'tasklist': out = this.windows.map(w => `${w.id} ${w.title}`).join('<br>') || '无任务'; break;
+                            case 'kill': {
+                                const pid = parseInt(args[1]);
+                                if (pid && this.windows.find(w => w.id === pid)) {
+                                    this.closeWindow(pid); out = '已终止';
+                                } else out = '无效PID';
+                                break;
+                            }
+                            case 'start': {
+                                const app = args[1];
+                                const map = {
+                                    explorer:'资源管理器', notepad:'记事本', word:'Word', ppt:'PPT',
+                                    cmd:'命令提示符', browser:'浏览器', paint:'画图', calculator:'计算器',
+                                    taskmgr:'任务管理器'
+                                };
+                                if (map[app]) launchApp(app);
+                                else out = '未知应用';
+                                break;
+                            }
+                            case 'exit': this.closeWindow(win.id); return;
+                            default: out = `'${comm}' 不是内部命令。`;
+                        }
+                        history.innerHTML += `<div>${out}</div>`;
+                        input.value = ''; el.querySelector('.cmd-screen').scrollTop = 9999;
+                    }
+                });
+            },
+
+            /* ---------- 浏览器 ---------- */
+            initBrowser(win, el) {
+                const du = win.extra.url || 'https://www.bing.com';
+                el.innerHTML = `<div style="display:flex;gap:6px;padding:6px;background:#eee;"><input class="burl" style="flex:1;" value="${du}"><button class="bgo">前往</button></div><iframe class="biframe" style="width:100%;height:calc(100% - 48px);border:none;" src="${du}"></iframe>`;
+                const urlInput = el.querySelector('.burl'), iframe = el.querySelector('.biframe');
+                const go = () => { const u = autoCompleteURL(urlInput.value); iframe.src = u; urlInput.value = u; };
+                el.querySelector('.bgo').addEventListener('click', go);
+                urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
+            },
+
+            /* ---------- 应用商店 ---------- */
+            initStore(win, el) {
+                el.innerHTML = `<div style="padding:16px;"><h3>🛒 应用商店</h3><div class="store-grid"><div class="store-card">📁<br>资源管理器<br><small>已安装</small></div><div class="store-card">📝<br>记事本<br><small>已安装</small></div><div class="store-card">📄<br>Word<br><small>已安装</small></div><div class="store-card">📊<br>PPT<br><small>已安装</small></div><div class="store-card">🎵<br>媒体播放器<br><small>已安装</small></div><div class="store-card">📌<br>便签<br><small>已安装</small></div></div></div>`;
+            },
+
+            /* ---------- 计算器 ---------- */
+            initCalculator(win, el) {
+                el.innerHTML = `<div class="calculator-display" id="calcDisplay">0</div><div class="calc-buttons"></div>`;
+                const disp = el.querySelector('#calcDisplay'); let exp = '';
+                ['7','8','9','/','4','5','6','*','1','2','3','-','0','.','=','+','C'].forEach(b => {
+                    const btn = document.createElement('button'); btn.textContent = b;
+                    btn.addEventListener('click', () => {
+                        if (b === 'C') { exp = ''; disp.textContent = '0'; }
+                        else if (b === '=') {
+                            try { exp = eval(exp).toString(); disp.textContent = exp; }
+                            catch { disp.textContent = '错误'; exp = ''; }
+                        } else { exp += b; disp.textContent = exp; }
+                    });
+                    el.querySelector('.calc-buttons').appendChild(btn);
+                });
+            },
+
+            /* ---------- 任务管理器 ---------- */
+            initTaskMgr(win, el) {
+                el.innerHTML = `<div style="padding:16px;"><h3>任务管理器</h3><div><b>CPU:</b> <span id="cpuU">0</span>%<div class="perf-meter"><div id="cpuB" class="perf-bar" style="width:0%"></div></div></div><div><b>内存:</b> <span id="memU">0</span> MB</div><div class="perf-meter"><div id="memB" class="perf-bar" style="width:0%"></div></div><h4>进程</h4><div id="taskList"></div></div>`;
+                const updateList = () => {
+                    const list = el.querySelector('#taskList'); list.innerHTML = '';
+                    this.windows.forEach(w => {
+                        const row = document.createElement('div');
+                        row.style.display='flex'; row.style.justifyContent='space-between'; row.style.padding='4px';
+                        row.innerHTML = `<span>${w.icon} ${w.title}</span><button data-end="${w.id}" style="color:red;">结束</button>`;
+                        row.querySelector('button').addEventListener('click', () => { this.closeWindow(w.id); updateList(); });
+                        list.appendChild(row);
+                    });
+                };
+                updateList();
+                const cpuEl = el.querySelector('#cpuU'), cpuBar = el.querySelector('#cpuB');
+                const memEl = el.querySelector('#memU'), memBar = el.querySelector('#memB');
+                const interval = setInterval(() => {
+                    if (!win.element || win._closed) { clearInterval(interval); return; }
+                    const cpu = Math.floor(Math.random()*40+5);
+                    const mem = Math.floor(Math.random()*500+600);
+                    cpuEl.textContent = cpu; cpuBar.style.width = cpu+'%';
+                    memEl.textContent = mem+' MB / 4096 MB'; memBar.style.width = (mem/4096*100)+'%';
+                }, 2000);
+                win._perfInterval = interval;
+            },
+
+            /* ---------- 设置 ---------- */
+            initSettings(el) {
+                el.innerHTML = `<div style="padding:24px;"><h3>⚙️ 设置</h3>
+                    <div style="margin:12px 0;"><label>主题：</label><select id="themeSelect"><option value="light">浅色</option><option value="dark">深色</option></select><button id="applyTheme" class="btn btn-primary" style="margin-left:8px;">应用</button></div>
+                    <div style="margin:12px 0;"><label>修改密码：</label><input id="newPwd" type="password" placeholder="新密码"><button id="savePwd" class="btn btn-primary" style="margin-left:8px;">保存</button></div></div>`;
+                el.querySelector('#themeSelect').value = this.settings.theme || 'light';
+                el.querySelector('#applyTheme').addEventListener('click', () => {
+                    const val = el.querySelector('#themeSelect').value;
+                    document.body.classList.toggle('dark-theme', val === 'dark');
+                    localStorage.setItem('holiday_theme', val);
+                    this.settings.theme = val;
+                });
+                el.querySelector('#savePwd').addEventListener('click', () => {
+                    const np = el.querySelector('#newPwd').value.trim();
+                    if (np) { localStorage.setItem('holiday_pwd', np); this.settings.password = np; alert('密码已修改'); }
+                });
+            },
+
+            /* ---------- 安装第三方软件 ---------- */
+            initInstaller(el) {
+                el.innerHTML = `<div style="padding:24px;"><h3>📥 安装第三方应用</h3>
+                    <input id="appName" placeholder="名称" style="width:100%;margin:8px 0;">
+                    <input id="appIcon" placeholder="图标 (Emoji)" style="width:100%;margin:8px 0;">
+                    <input id="appUrl" placeholder="网址" style="width:100%;margin:8px 0;">
+                    <button id="doInstall" class="btn btn-primary">安装</button></div>`;
+                el.querySelector('#doInstall').addEventListener('click', () => {
+                    const name = el.querySelector('#appName').value.trim();
+                    const icon = el.querySelector('#appIcon').value.trim() || '🌐';
+                    const url = el.querySelector('#appUrl').value.trim();
+                    if (!name || !url) return alert('请填写名称和网址');
+                    if (!url.startsWith('http')) return alert('网址需以 http 开头');
+                    const apps = JSON.parse(localStorage.getItem('holiday_custom_apps') || '[]');
+                    apps.push({ name, icon, url });
+                    localStorage.setItem('holiday_custom_apps', JSON.stringify(apps));
+                    renderDesktopIcons();
+                    alert('安装成功！');
+                });
+            },
+
+            /* ---------- 关于 ---------- */
+            initAbout(el) {
+                el.innerHTML = `<div style="padding:32px;text-align:center;">
+                    <h2>🏝️ Holiday OS 3.4</h2>
+                    <p>全新增强：Word/PPT/画图支持插入文本框、图片，可自由移动与缩放</p>
+                    <p><b>快捷键：</b>Tab = Ctrl / CapsLock = Win</p>
+                    <p>Win+E 资源管理器 | Win+N 记事本 | Win+W Word | Win+P PPT</p>
+                    <p>Ctrl+W 关闭窗口 | Win+D 显示桌面 | Insert = 右键</p>
+                </div>`;
+            },
+
+            /* ---------- 便签 ---------- */
+            initSticky(win, el) {
+                el.innerHTML = `<div style="padding:8px;"><textarea style="width:100%;height:180px;background:#feff9c;border:none;outline:none;font-family:'Comic Sans MS',cursive;font-size:14px;">便签内容...</textarea></div>`;
+            },
+
+            /* ---------- 媒体播放器 ---------- */
+            initMediaPlayer(win, el) {
+                el.innerHTML = `<div style="padding:16px;"><h3>🎵 媒体播放器</h3><audio id="maudio" controls style="width:100%;"></audio><br><button id="loadAudio">📁 从磁盘加载音频</button><span>（mp3,wav,ogg）</span></div>`;
+                const audio = el.querySelector('#maudio');
+                el.querySelector('#loadAudio').addEventListener('click', () => {
+                    const path = prompt('输入音频路径：');
+                    if (!path) return;
+                    const nd = this.findNode(path);
+                    if (!nd || !['mp3','wav','ogg'].includes(nd.ext)) { alert('无效音频'); return; }
+                    audio.src = nd.content;
+                });
+            },
+
+            /* ---------- 文件打开入口 ---------- */
+            openFileByPath(path) {
+                const nd = this.findNode(path);
+                if (!nd) return;
+                const ext = nd.ext || nd.name.split('.').pop();
+                switch(ext) {
+                    case 'txt': this.createWindow('notepad', nd.name, '📝', 650, 450, {filePath:path}); break;
+                    case 'docx': this.createWindow('word', nd.name, '📄', 800, 600, {filePath:path}); break;
+                    case 'pptx': this.createWindow('ppt', nd.name, '📊', 800, 600, {filePath:path}); break;
+                    case 'png': case 'jpg': case 'jpeg': case 'gif':
+                        this.createWindow('imageviewer', nd.name, '🖼️', 600, 400, {filePath:path}); break;
+                    default: this.createWindow('notepad', nd.name, '📝', 650, 450, {filePath:path});
+                }
+            },
+        }; /* OS 对象结束 */
+
+        /* ========== 通用拖拽 + 缩放工具函数 ========== */
+        function makeDraggableAndResizable(element, container) {
+            let offX, offY;
+            element.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('resize-handle')) return;
+                e.preventDefault();
+                const rect = element.getBoundingClientRect();
+                offX = e.clientX - rect.left;
+                offY = e.clientY - rect.top;
+                document.addEventListener('mousemove', onDrag);
+                document.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', onDrag);
+                }, { once: true });
+            });
+            function onDrag(e) {
+                const containerRect = container.getBoundingClientRect();
+                const newLeft = e.clientX - containerRect.left - offX;
+                const newTop = e.clientY - containerRect.top - offY;
+                element.style.left = Math.max(0, newLeft) + 'px';
+                element.style.top = Math.max(0, newTop) + 'px';
+            }
+            // 缩放把手
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            element.appendChild(handle);
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation(); e.preventDefault();
+                const startX = e.clientX, startY = e.clientY;
+                const startW = parseInt(element.style.width) || element.offsetWidth;
+                const startH = parseInt(element.style.height) || element.offsetHeight;
+                document.addEventListener('mousemove', onResize);
+                document.addEventListener('mouseup', () => {
+                    document.removeEventListener('mousemove', onResize);
+                }, { once: true });
+                function onResize(e) {
+                    element.style.width = Math.max(50, startW + e.clientX - startX) + 'px';
+                    element.style.height = Math.max(30, startH + e.clientY - startY) + 'px';
+                }
+            });
+        }
+
+        /* ========== 全局函数：自动补全网址 ========== */
+        function autoCompleteURL(input) {
+            let url = input.trim();
+            if (!url) return 'https://www.bing.com';
+            if (/^https?:\/\//i.test(url)) return url;
+            url = url.replace(/[。，．、]/g, '.').replace(/[Ａ-Ｚａ-ｚ０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 65248));
+            if (url.includes('百度') && !url.includes('.')) return 'https://www.baidu.com/s?wd=' + encodeURIComponent(url);
+            if (/^[a-zA-Z0-9-]+(\.[a-zA-Z]{2,})+$/.test(url)) return 'https://' + url;
+            return 'https://www.baidu.com/s?wd=' + encodeURIComponent(url);
+        }
+
+        /* ========== 启动应用映射 ========== */
+        window.launchApp = (app) => {
+            const map = {
+                explorer: ['explorer','资源管理器','📁',750,500],
+                notepad: ['notepad','记事本','📝',650,450],
+                word: ['word','Word','📄',800,600, {filePath:null,content:''}],
+                ppt: ['ppt','PPT','📊',800,600, {filePath:null,content:'[]'}],
+                cmd: ['cmd','命令提示符','💻',680,440],
+                browser: ['browser','浏览器','🌐',850,520],
+                paint: ['paint','画图','🎨',700,500],
+                calculator: ['calculator','计算器','🔢',400,400],
+                taskmgr: ['taskmgr','任务管理器','📋',480,420],
+                settings: ['settings','设置','⚙️',580,500],
+                installer: ['installer','安装第三方软件','📥',500,380],
+                about: ['about','关于','ℹ️',440,400],
+                sticky: ['sticky','便签','📌',300,260],
+                mediaplayer: ['mediaplayer','媒体播放器','🎵',400,280],
+            };
+            if (map[app]) { const args = map[app]; OS.createWindow(...args); }
+        };
+        window.openFileByPath = (path) => OS.openFileByPath(path);
+
+        /* ========== 桌面图标渲染 ========== */
+        function renderDesktopIcons() {
+            const desktop = document.getElementById('desktop');
+            desktop.innerHTML = '';
+            const apps = [
+                { id:'explorer', icon:'📁', name:'资源管理器' },
+                { id:'notepad', icon:'📝', name:'记事本' },
+                { id:'word', icon:'📄', name:'Word' },
+                { id:'ppt', icon:'📊', name:'PowerPoint' },
+                { id:'cmd', icon:'💻', name:'命令提示符' },
+                { id:'browser', icon:'🌐', name:'浏览器' },
+                { id:'store', icon:'🛒', name:'应用商店' },
+                { id:'paint', icon:'🎨', name:'画图' },
+                { id:'calculator', icon:'🔢', name:'计算器' },
+                { id:'taskmgr', icon:'📋', name:'任务管理器' },
+            ];
+            apps.forEach(app => {
+                const div = document.createElement('div');
+                div.className = 'desktop-icon'; div.draggable = true;
+                div.innerHTML = `<span class="icon-img">${app.icon}</span><span>${app.name}</span>`;
+                div.addEventListener('dblclick', () => launchApp(app.id));
+                desktop.appendChild(div);
+            });
+            // 回收站
+            const recycleDiv = document.createElement('div');
+            recycleDiv.className = 'desktop-icon'; recycleDiv.id = 'recycle-bin-icon';
+            recycleDiv.innerHTML = `<span class="icon-img">🗑️</span><span>回收站</span>`;
+            recycleDiv.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+            recycleDiv.addEventListener('drop', e => {
+                e.preventDefault();
+                const src = e.dataTransfer.getData('text/plain');
+                if (src) { OS.deleteToRecycle(src); renderDesktopIcons(); }
+            });
+            recycleDiv.addEventListener('dblclick', () => {
+                OS.createWindow('explorer', '回收站', '🗑️', 700, 500, { currentPath:'/$Recycle.Bin' });
+            });
+            recycleDiv.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const fmenu = document.getElementById('file-context-menu');
+                fmenu.innerHTML = `<div data-file-action="emptyRecycle">🗑 清空回收站</div><div data-file-action="openRecycle">📂 打开回收站</div>`;
+                fmenu.style.display = 'block'; fmenu.style.left = e.clientX+'px'; fmenu.style.top = e.clientY+'px';
+                fmenu.dataset.targetPath = '/$Recycle.Bin';
+            });
+            desktop.appendChild(recycleDiv);
+
+            // 桌面文件夹中的文件图标
+            const desktopFolder = OS.findNode('/Users/Guest/Desktop');
+            if (desktopFolder && desktopFolder.children) {
+                desktopFolder.children.forEach(file => {
+                    if (file.type === 'file') {
+                        const div = document.createElement('div');
+                        div.className = 'desktop-icon'; div.draggable = true;
+                        const iconEmoji = (['png','jpg','jpeg','gif'].includes(file.ext) ? '🖼️' : (['mp3','wav','ogg'].includes(file.ext) ? '🎵' : '📄'));
+                        div.innerHTML = `<span class="icon-img">${iconEmoji}</span><span>${file.name}</span>`;
+                        div.addEventListener('dblclick', () => openFileByPath(file.path));
+                        div.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', file.path);
+                        });
+                        desktop.appendChild(div);
+                    }
+                });
+            }
+
+            // 第三方应用图标
+            const customApps = JSON.parse(localStorage.getItem('holiday_custom_apps') || '[]');
+            customApps.forEach((app, idx) => {
+                const div = document.createElement('div');
+                div.className = 'desktop-icon'; div.draggable = true;
+                div.innerHTML = `<span class="icon-img">${app.icon}</span><span>${app.name}</span>`;
+                div.addEventListener('dblclick', () => {
+                    OS.createWindow('browser', app.name, app.icon, 850, 520, { url: app.url });
+                });
+                desktop.appendChild(div);
+            });
+        }
+
+        /* ========== 事件绑定（修复右键菜单） ========== */
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const menu = document.getElementById('context-menu');
+            menu.style.display = 'block'; menu.style.left = e.clientX+'px'; menu.style.top = e.clientY+'px';
+        });
+
+        document.getElementById('context-menu').addEventListener('click', (e) => {
+            const target = e.target.closest('[data-ctx]');
+            if (!target) return;
+            const action = target.dataset.ctx;
+            switch(action) {
+                case 'refresh': renderDesktopIcons(); break;
+                case 'newfile': {
+                    const n = prompt('文件名：','新建文档.txt');
+                    if (n) { OS.addFile('/Users/Guest/Desktop', n); renderDesktopIcons(); }
+                    break;
+                }
+                case 'newfolder': {
+                    const n = prompt('文件夹名：','新建文件夹');
+                    if (n) { OS.addFolder('/Users/Guest/Desktop', n); renderDesktopIcons(); }
+                    break;
+                }
+                case 'newsticky': launchApp('sticky'); break;
+                case 'changebg': {
+                    const input = document.createElement('input'); input.type='file'; input.accept='image/*';
+                    input.onchange = (ev) => {
+                        const file = ev.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                document.documentElement.style.setProperty('--desktop-bg-image', `url(${e.target.result})`);
+                                localStorage.setItem('holiday_bg', e.target.result);
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    };
+                    input.click();
+                    break;
+                }
+                case 'toggleTheme': {
+                    const isDark = document.body.classList.toggle('dark-theme');
+                    localStorage.setItem('holiday_theme', isDark ? 'dark' : 'light');
+                    OS.settings.theme = isDark ? 'dark' : 'light';
+                    break;
+                }
+                case 'export': OS.exportFS(); break;
+                case 'import': {
+                    const input = document.createElement('input'); input.type='file'; input.accept='.json';
+                    input.onchange = (ev) => { if (ev.target.files[0]) OS.importFS(ev.target.files[0]); };
+                    input.click();
+                    break;
+                }
+            }
+            document.getElementById('context-menu').style.display = 'none';
+        });
+
+        document.getElementById('file-context-menu').addEventListener('click', (e) => {
+            const target = e.target.closest('[data-file-action]');
+            if (!target) return;
+            const action = target.dataset.fileAction;
+            const path = document.getElementById('file-context-menu').dataset.targetPath;
+            if (!action || !path) return;
+            switch(action) {
+                case 'rename': {
+                    const nn = prompt('新名称：', path.split('/').pop());
+                    if (nn) {
+                        const node = OS.findNode(path);
+                        if (node) { node.name = nn; node.path = OS.parentPath(path) + '/' + nn; OS.saveFS(); }
+                        OS.windows.forEach(w => {
+                            if (w.appType === 'explorer' && w.element) {
+                                OS.initExplorer(w, w.element.querySelector('.window-content'));
+                            }
+                        });
+                        renderDesktopIcons();
+                    }
+                    break;
+                }
+                case 'delete': {
+                    if (confirm('确定删除？')) {
+                        OS.deleteToRecycle(path);
+                        OS.windows.forEach(w => {
+                            if (w.appType === 'explorer' && w.element) {
+                                OS.initExplorer(w, w.element.querySelector('.window-content'));
+                            }
+                        });
+                        renderDesktopIcons();
+                    }
+                    break;
+                }
+                case 'copy': OS.copyFile(path); break;
+                case 'cut': OS.cutFile(path); break;
+                case 'paste': {
+                    const dest = prompt('目标路径：');
+                    if (dest && OS.findNode(dest)) {
+                        if (OS.pasteFile(dest)) {
+                            OS.windows.forEach(w => {
+                                if (w.appType === 'explorer' && w.element) {
+                                    OS.initExplorer(w, w.element.querySelector('.window-content'));
+                                }
+                            });
+                            renderDesktopIcons();
+                        }
+                    }
+                    break;
+                }
+                case 'exportfile': {
+                    const nd = OS.findNode(path);
+                    if (nd) OS.exportSingleFile(nd);
+                    break;
+                }
+                case 'copypath': navigator.clipboard.writeText(path); alert('路径已复制'); break;
+                case 'emptyRecycle': {
+                    if (confirm('清空回收站？')) {
+                        OS.findNode('/$Recycle.Bin').children = [];
+                        OS.saveFS();
+                        renderDesktopIcons();
+                    }
+                    break;
+                }
+                case 'openRecycle': OS.createWindow('explorer','回收站','🗑️',700,500,{currentPath:'/$Recycle.Bin'}); break;
+            }
+            document.getElementById('file-context-menu').style.display = 'none';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#context-menu') && !e.target.closest('#file-context-menu')) {
+                document.getElementById('context-menu').style.display = 'none';
+                document.getElementById('file-context-menu').style.display = 'none';
+            }
+            if (!e.target.closest('#start-menu') && !e.target.closest('#start-btn')) {
+                document.getElementById('start-menu').classList.remove('open');
+                document.getElementById('start-btn').classList.remove('active');
+            }
+            if (!e.target.closest('#notification-panel') && !e.target.closest('#tray-notifications')) {
+                document.getElementById('notification-panel').classList.remove('open');
+            }
+            if (!e.target.closest('#calendar-popup') && !e.target.closest('#clock')) {
+                document.getElementById('calendar-popup').classList.remove('open');
+            }
+        });
+
+        /* ========== 快捷键 ========== */
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') { e.preventDefault(); OS.ctrlPressed = true; return; }
+            if (e.key === 'CapsLock') { e.preventDefault(); OS.winPressed = true; return; }
+            if (e.key === 'Insert') {
+                e.preventDefault();
+                const m = document.getElementById('context-menu');
+                m.style.display = 'block'; m.style.left = '200px'; m.style.top = '200px';
+                return;
+            }
+            if (OS.winPressed) {
+                e.preventDefault();
+                switch (e.key.toLowerCase()) {
+                    case 'e': launchApp('explorer'); break;
+                    case 'n': launchApp('notepad'); break;
+                    case 'w': launchApp('word'); break;
+                    case 'p': launchApp('ppt'); break;
+                    case 'c': launchApp('cmd'); break;
+                    case 'b': launchApp('browser'); break;
+                    case 'd': OS.windows.forEach(w => { if (!w.minimized) OS.minimizeWindow(w.id); }); break;
+                    case 'l': document.getElementById('lock-screen').style.display = 'flex'; break;
+                }
+                OS.winPressed = false;
+            }
+            if (OS.ctrlPressed) {
+                if (e.key.toLowerCase() === 'w') {
+                    e.preventDefault();
+                    if (OS.focusedId) OS.closeWindow(OS.focusedId);
+                }
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'Tab') OS.ctrlPressed = false;
+            if (e.key === 'CapsLock') OS.winPressed = false;
+        });
+
+        /* ========== 系统托盘与通知 ========== */
+        document.getElementById('tray-notifications').addEventListener('click', () => {
+            document.getElementById('notification-panel').classList.toggle('open');
+        });
+        document.getElementById('clear-notifications').addEventListener('click', () => {
+            OS.notifications = []; OS.updateNotificationBadge(); OS.renderNotificationPanel();
+        });
+        document.getElementById('clock').addEventListener('click', () => {
+            document.getElementById('calendar-popup').classList.toggle('open');
+            renderCalendar();
+        });
+
+        let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+        document.getElementById('cal-prev').addEventListener('click', () => {
+            calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar();
+        });
+        document.getElementById('cal-next').addEventListener('click', () => {
+            calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar();
+        });
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid'), my = document.getElementById('cal-month-year');
+            const today = new Date();
+            my.textContent = `${calYear}年 ${calMonth+1}月`;
+            grid.innerHTML = '';
+            ['日','一','二','三','四','五','六'].forEach(d => {
+                const div = document.createElement('div'); div.textContent = d; grid.appendChild(div);
+            });
+            const firstDay = new Date(calYear, calMonth, 1).getDay();
+            const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+            for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+            for (let d = 1; d <= daysInMonth; d++) {
+                const div = document.createElement('div'); div.textContent = d;
+                if (today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d)
+                    div.classList.add('today');
+                grid.appendChild(div);
+            }
+        }
+
+        /* ========== 电源按钮 ========== */
+        document.getElementById('power-shutdown').addEventListener('click', () => {
+            window.close();
+            setTimeout(() => { window.location.href = 'about:blank'; }, 100);
+        });
+        document.getElementById('power-restart').addEventListener('click', () => location.reload());
+        document.getElementById('power-sleep').addEventListener('click', () => {
+            document.body.style.filter = 'brightness(0.3)';
+            setTimeout(() => { document.body.style.filter = ''; }, 2000);
+        });
+        document.getElementById('power-lock').addEventListener('click', () => {
+            document.getElementById('lock-screen').style.display = 'flex';
+        });
+        document.getElementById('unlock-btn').addEventListener('click', () => {
+            document.getElementById('lock-screen').style.display = 'none';
+        });
+
+        /* ========== 开始菜单 ========== */
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const menu = document.getElementById('start-menu');
+            menu.classList.toggle('open');
+            document.getElementById('start-btn').classList.toggle('active');
+        });
+        document.querySelectorAll('#start-menu .menu-list li[data-app]').forEach(li => {
+            li.addEventListener('click', () => {
+                launchApp(li.dataset.app);
+                document.getElementById('start-menu').classList.remove('open');
+                document.getElementById('start-btn').classList.remove('active');
+            });
+        });
+
+        /* ========== 时钟 ========== */
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        /* ========== 开机与登录 ========== */
+        window.addEventListener('load', () => {
+            const bar = document.getElementById('boot-bar'); let w = 0;
+            const iv = setInterval(() => {
+                w += 5; bar.style.width = w + '%';
+                if (w >= 100) {
+                    clearInterval(iv);
+                    setTimeout(() => {
+                        document.getElementById('boot-screen').style.opacity = '0';
+                        setTimeout(() => {
+                            document.getElementById('boot-screen').style.display = 'none';
+                            document.getElementById('login-screen').style.display = 'flex';
+                            document.getElementById('password-input').focus();
+                        }, 500);
+                    }, 300);
+                }
+            }, 50);
+        });
+
+        let pwd = localStorage.getItem('holiday_pwd') || '1234';
+        document.getElementById('login-btn').addEventListener('click', () => {
+            if (document.getElementById('password-input').value === pwd) {
+                document.getElementById('login-screen').style.display = 'none';
+                OS.restoreSession();
+                renderDesktopIcons();
+                if (localStorage.getItem('holiday_theme') === 'dark') document.body.classList.add('dark-theme');
+                const bg = localStorage.getItem('holiday_bg');
+                if (bg) document.documentElement.style.setProperty('--desktop-bg-image', `url(${bg})`);
+                OS.pushNotification('欢迎使用 Holiday OS 3.4！');
+            } else {
+                document.getElementById('login-error').style.display = 'block';
+            }
+        });
+        document.getElementById('change-pwd-btn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const np = prompt('输入新密码：');
+            if (np) { pwd = np; localStorage.setItem('holiday_pwd', np); OS.settings.password = np; alert('密码已修改'); }
+        });
+
+        window.addEventListener('beforeunload', () => OS.saveSession());
+        OS.initFS();
+    })();
+    </script>
+</body>
+</html>
